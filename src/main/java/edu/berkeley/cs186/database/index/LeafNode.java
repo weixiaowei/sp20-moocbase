@@ -141,8 +141,18 @@ class LeafNode extends BPlusNode {
     @Override
     public LeafNode get(DataBox key) {
         // TODO(proj2): implement
-
-        return null;
+        //
+        return this;
+        /*if (key.compareTo(keys.get(0)) < 0) {
+            return null;
+        } else if (key.compareTo(keys.get(0)) >= 0 && key.compareTo(keys.get(keys.size() - 1)) < 0) {
+            return this;
+        }
+        Optional<LeafNode> rightNode = getRightSibling();
+        if (rightNode.isPresent()) {
+            return rightNode.get().get(key);
+        }
+        return null;*/
     }
 
     // See BPlusNode.getLeftmostLeaf.
@@ -150,7 +160,7 @@ class LeafNode extends BPlusNode {
     public LeafNode getLeftmostLeaf() {
         // TODO(proj2): implement
 
-        return null;
+        return this;
     }
 
     // See BPlusNode.put.
@@ -363,8 +373,20 @@ class LeafNode extends BPlusNode {
     public static LeafNode fromBytes(BPlusTreeMetadata metadata, BufferManager bufferManager,
                                      LockContext treeContext, long pageNum) {
         // TODO(proj2): implement
+        Page page = bufferManager.fetchPage(treeContext, pageNum, false);
+        Buffer buf = page.getBuffer();
 
-        return null;
+        assert (buf.get() == (byte) 1);
+
+        List<DataBox> keys = new ArrayList<>();
+        List<RecordId> rids = new ArrayList<>();
+        int n = buf.getInt();
+        long rightSibling = buf.getLong();
+        for (int i = 0; i < 10; ++i) {
+            keys.add(DataBox.fromBytes(buf, metadata.getKeySchema()));
+            rids.add(RecordId.fromBytes(buf));
+        }
+        return new LeafNode(metadata, bufferManager, page, keys, rids, Optional.of(rightSibling), treeContext);
     }
 
     // Builtins //////////////////////////////////////////////////////////////////
