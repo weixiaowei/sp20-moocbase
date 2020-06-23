@@ -95,14 +95,71 @@ class InnerNode extends BPlusNode {
     public LeafNode getLeftmostLeaf() {
         assert(children.size() > 0);
         // TODO(proj2): implement
-
-        return null;
+        BPlusNode nextChild = getChild(0);
+        if (nextChild.getPage().getBuffer().get() == 1) {
+            return (LeafNode) nextChild;
+        }
+        return nextChild.getLeftmostLeaf();
     }
 
     // See BPlusNode.put.
     @Override
     public Optional<Pair<DataBox, Long>> put(DataBox key, RecordId rid) {
         // TODO(proj2): implement
+
+        // first find the right leaf node
+        LeafNode leaf = get(key);
+
+        // if the leaf node have space for the entry, just put the entry in the node.
+        if (leaf.getKeys().size() < 2 * metadata.getOrder()) {
+            int i = 0;
+            while (i < leaf.getKeys().size() && key.compareTo(leaf.getKeys().get(i)) > 0) {
+                i+= 1;
+            }
+            leaf.getKeys().set(i, key);
+        }
+
+        // if not, split the leaf node, copy the split key to upper inner node
+        else {
+            // new leaf node
+            List<DataBox> tempKeys = new ArrayList<>(leaf.getKeys());
+            int i = 0;
+            while (i < tempKeys.size() && key.compareTo(tempKeys.get(i)) > 0) {
+                i+= 1;
+            }
+            tempKeys.set(i, key);
+
+            List<RecordId> tempRids = new ArrayList<>(leaf.getRids());
+            tempRids.set(i, rid);
+
+            // left leaf
+            leaf.getKeys().clear();
+            leaf.getRids().clear();
+            for (int j = 0; j < metadata.getOrder(); j++) {
+                leaf.getKeys().add(tempKeys.get(j));
+                leaf.getRids().add(tempRids.get(j));
+            }
+
+            // right leaf
+            List<DataBox> rightKeys = new ArrayList<>(2 * metadata.getOrder());
+            List<RecordId> rightIds = new ArrayList<>(2 * metadata.getOrder());
+            for (int m = metadata.getOrder(); m < tempKeys.size(); m++) {
+                leaf.getKeys().add(tempKeys.get(m));
+                leaf.getRids().add(tempRids.get(m));
+            }
+
+            Optional<Long> nextLeafPageNum = Optional.empty();
+            if (leaf.getRightSibling().isPresent()) {
+                nextLeafPageNum = Optional.of(leaf.getRightSibling().get().getPage().getPageNum());
+            }
+            LeafNode rightNode = new LeafNode(metadata, bufferManager, rightKeys, rightIds, nextLeafPageNum, treeContext);
+            // update left leaf's rightSlibling, How? make a new Node?
+            rightNode.getPage().getPageNum();
+        }
+
+        // call the put inner node procedure. How to get the upper inner node? No direct. keep the path inner node in a list?
+        // cause we know the depth is 3 or 4.
+
 
         return Optional.empty();
     }
