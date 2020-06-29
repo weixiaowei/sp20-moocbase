@@ -106,62 +106,68 @@ class InnerNode extends BPlusNode {
     @Override
     public Optional<Pair<DataBox, Long>> put(DataBox key, RecordId rid) {
         // TODO(proj2): implement
-
-        // first find the right leaf node
-        LeafNode leaf = get(key);
-
-        // if the leaf node have space for the entry, just put the entry in the node.
-        if (leaf.getKeys().size() < 2 * metadata.getOrder()) {
-            int i = 0;
-            while (i < leaf.getKeys().size() && key.compareTo(leaf.getKeys().get(i)) > 0) {
-                i+= 1;
-            }
-            leaf.getKeys().set(i, key);
+        int i = 0;
+        while (i <= keys.size() - 1 && key.compareTo(keys.get(i)) >= 0) {
+            i += 1;
         }
-
-        // if not, split the leaf node, copy the split key to upper inner node
-        else {
-            // new leaf node
-            List<DataBox> tempKeys = new ArrayList<>(leaf.getKeys());
-            int i = 0;
-            while (i < tempKeys.size() && key.compareTo(tempKeys.get(i)) > 0) {
-                i+= 1;
-            }
-            tempKeys.set(i, key);
-
-            List<RecordId> tempRids = new ArrayList<>(leaf.getRids());
-            tempRids.set(i, rid);
-
-            // left leaf
-            leaf.getKeys().clear();
-            leaf.getRids().clear();
-            for (int j = 0; j < metadata.getOrder(); j++) {
-                leaf.getKeys().add(tempKeys.get(j));
-                leaf.getRids().add(tempRids.get(j));
-            }
-
-            // right leaf
-            List<DataBox> rightKeys = new ArrayList<>(2 * metadata.getOrder());
-            List<RecordId> rightIds = new ArrayList<>(2 * metadata.getOrder());
-            for (int m = metadata.getOrder(); m < tempKeys.size(); m++) {
-                leaf.getKeys().add(tempKeys.get(m));
-                leaf.getRids().add(tempRids.get(m));
-            }
-
-            Optional<Long> nextLeafPageNum = Optional.empty();
-            if (leaf.getRightSibling().isPresent()) {
-                nextLeafPageNum = Optional.of(leaf.getRightSibling().get().getPage().getPageNum());
-            }
-            LeafNode rightNode = new LeafNode(metadata, bufferManager, rightKeys, rightIds, nextLeafPageNum, treeContext);
-            // update left leaf's rightSlibling, How? make a new Node?
-            rightNode.getPage().getPageNum();
+        BPlusNode nextChild = getChild(i);
+        Optional<Pair<DataBox, Long>> result = nextChild.put(key, rid);
+        if (!result.isPresent()) {
+            return Optional.empty();
         }
-
         // call the put inner node procedure. How to get the upper inner node? No direct. keep the path inner node in a list?
         // cause we know the depth is 3 or 4.
 
+        //
+        Pair<DataBox, Long> putValue = result.get();
 
-        return Optional.empty();
+        if (getKeys().size() + 1 < 2 * metadata.getOrder()) {
+            i = 0;
+            while (i < getKeys().size() && key.compareTo(getKeys().get(i)) > 0) {
+                i += 1;
+            }
+            getKeys().add(i, putValue.getFirst());
+            getChildren().add(i + 1, putValue.getSecond());
+            sync();
+            return Optional.empty();
+
+        }
+        // if not, split the inner node, move the split key to upper inner node
+        else {
+            // new leaf node
+            List<DataBox> tempKeys = new ArrayList<>(getKeys());
+            i = 0;
+            while (i < tempKeys.size() && key.compareTo(tempKeys.get(i)) > 0) {
+                i += 1;
+            }
+            tempKeys.add(i, putValue.getFirst());
+
+            List<Long> tempChildren = new ArrayList<>(getChildren());
+            tempChildren.add(i + 1, putValue.getSecond());
+
+            // left leaf
+            getKeys().clear();
+            getChildren().clear();
+            int j = 0;
+            for (; j < metadata.getOrder(); j++) {
+                getKeys().add(tempKeys.get(j));
+                getChildren().add(tempChildren.get(j));
+            }
+            getChildren().add(tempChildren.get(j));
+
+            // right leaf
+            List<DataBox> rightKeys = new ArrayList<>(2 * metadata.getOrder());
+            List<Long> rightChildren = new ArrayList<>(2 * metadata.getOrder() + 1);
+            for (int m = metadata.getOrder() + 1; m < tempKeys.size(); m++) {
+                rightKeys.add(tempKeys.get(m));
+                rightChildren.add(tempChildren.get(m));
+            }
+
+            InnerNode rightNode = new InnerNode(metadata, bufferManager, rightKeys, rightChildren, treeContext);
+
+            sync();
+            return Optional.of(new Pair(tempKeys.get(metadata.getOrder()), rightNode.getPage().getPageNum()));
+        }
     }
 
     // See BPlusNode.bulkLoad.

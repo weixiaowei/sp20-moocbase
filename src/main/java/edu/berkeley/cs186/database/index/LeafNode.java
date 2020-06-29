@@ -167,8 +167,54 @@ class LeafNode extends BPlusNode {
     @Override
     public Optional<Pair<DataBox, Long>> put(DataBox key, RecordId rid) {
         // TODO(proj2): implement
+        // if the leaf node have space for the entry, just put the entry in the node.
+        if (getKeys().size() + 1 < 2 * metadata.getOrder()) {
+            int i = 0;
+            while (i < getKeys().size() && key.compareTo(getKeys().get(i)) > 0) {
+                i+= 1;
+            }
+            getKeys().add(i, key);
+            getRids().add(i, rid);
+            sync();
+            return Optional.empty();
 
-        return Optional.empty();
+        }
+        // if not, split the leaf node, copy the split key to upper inner node
+        else {
+            // new leaf node
+            List<DataBox> tempKeys = new ArrayList<>(getKeys());
+            int i = 0;
+            while (i < tempKeys.size() && key.compareTo(tempKeys.get(i)) > 0) {
+                i += 1;
+            }
+            tempKeys.add(i, key);
+
+            List<RecordId> tempRids = new ArrayList<>(getRids());
+            tempRids.add(i, rid);
+
+            // left leaf
+            getKeys().clear();
+            getRids().clear();
+            for (int j = 0; j < metadata.getOrder(); j++) {
+                getKeys().add(tempKeys.get(j));
+                getRids().add(tempRids.get(j));
+            }
+
+            // right leaf
+            List<DataBox> rightKeys = new ArrayList<>(2 * metadata.getOrder());
+            List<RecordId> rightIds = new ArrayList<>(2 * metadata.getOrder());
+            for (int m = metadata.getOrder(); m < tempKeys.size(); m++) {
+                rightKeys.add(tempKeys.get(m));
+                rightIds.add(tempRids.get(m));
+            }
+            LeafNode rightNode = new LeafNode(metadata, bufferManager, rightKeys, rightIds, rightSibling, treeContext);
+            // update left leaf's rightSlibling
+            rightSibling = Optional.of(rightNode.getPage().getPageNum());
+
+            sync();
+            Optional<Pair<DataBox, Long>> result = Optional.of(new Pair(rightKeys.get(0), rightNode.getPage().getPageNum()));
+            return result;
+        }
     }
 
     // See BPlusNode.bulkLoad.
