@@ -21,6 +21,21 @@ public enum LockType {
             throw new NullPointerException("null lock type");
         }
         // TODO(proj4_part1): implement
+        if (a.toString().equals("NL") || b.toString().equals("NL")) {
+            return true;
+        } else if (a.toString().equals("S") && b.toString().equals("S")) {
+            return true;
+        } else if (a.toString().equals("S") && b.toString().equals("IS") || a.toString().equals("IS") && b.toString().equals("S")) {
+            return true;
+        } else if (a.toString().equals("IS") && b.toString().equals("IS")) {
+            return true;
+        } else if (a.toString().equals("IS") && b.toString().equals("IX") || a.toString().equals("IX") && b.toString().equals("IS")) {
+            return true;
+        } else if (a.toString().equals("IS") && b.toString().equals("SIX") || a.toString().equals("SIX") && b.toString().equals("IS")) {
+            return true;
+        } else if (a.toString().equals("IX") && b.toString().equals("IX")) {
+            return true;
+        }
 
         return false;
     }
@@ -53,7 +68,13 @@ public enum LockType {
             throw new NullPointerException("null lock type");
         }
         // TODO(proj4_part1): implement
-
+        if (childLockType.toString().equals("NL")) {
+            return true;
+        } else if (parentLockType.toString().equals("NL")) {
+            return false;
+        } else if (parentLockType.equals(parentLock(childLockType))) {
+            return true;
+        }
         return false;
     }
 
@@ -68,7 +89,17 @@ public enum LockType {
             throw new NullPointerException("null lock type");
         }
         // TODO(proj4_part1): implement
-
+        if (required.equals(substitute)) {
+            return true;
+        } else if (required.toString().equals("S") && (substitute.toString().equals("X") || substitute.toString().equals("SIX"))) {
+            return true;
+        } else if (required.toString().equals("IS") && (substitute.toString().equals("S") || substitute.toString().equals("IS") || substitute.toString().equals("SIX"))) {
+            return true;
+        } else if (required.toString().equals("IX") && (substitute.toString().equals("SIX") || substitute.toString().equals("X"))) {
+            return true;
+        } else if (required.toString().equals("SIX") && substitute.toString().equals("X")) {
+            return true;
+        }
         return false;
     }
 
